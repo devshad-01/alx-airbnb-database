@@ -1,8 +1,4 @@
 -- Airbnb Clone Database Schema
--- Based on the Entity-Relationship Requirements
-
--- Note: SQL Server uses UNIQUEIDENTIFIER and NEWID() for UUID functionality
--- No extension needed
 
 -- Create User table
 CREATE TABLE "user"
