@@ -36,4 +36,30 @@ The FULL OUTER JOIN ensures that all users and all bookings are included in the 
 To execute these queries:
 
 ```bash
-psql -U username -d airbnb_clone -f [joins_queries.sql](http://_vscodecontentref_/0)
+psql -U username -d airbnb_clone -f joins_queries.sql
+```
+
+## Task 1: Subqueries
+
+The `subqueries.sql` file demonstrates two types of subqueries:
+
+### 1. Non-correlated Subquery
+
+Finds all properties where the average rating is greater than 4.0. This query:
+- Uses a subquery to calculate the average rating for each property
+- Returns only properties that meet the rating threshold
+- Demonstrates how to use GROUP BY and HAVING within a subquery
+
+### 2. Correlated Subquery
+
+Finds users who have made more than 3 bookings. This query:
+- Uses a correlated subquery where the inner query references the outer query
+- Counts the number of bookings for each user
+- Returns only users who have made more than the specified number of bookings
+- Demonstrates how to use correlated subqueries for data filtering based on counts
+
+To execute these subqueries:
+
+```bash
+psql -U username -d airbnb_clone -f subqueries.sql
+```
