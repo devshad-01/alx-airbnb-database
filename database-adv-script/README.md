@@ -97,3 +97,28 @@ To execute these queries:
 ```bash
 psql -U username -d airbnb_clone -f aggregations_and_window_functions.sql
 ```
+
+## Task 3: Indexes for Optimization
+
+The `database_index.sql` file contains SQL commands to create indexes that optimize database performance:
+
+### Index Creation
+
+This task involves:
+
+- Identifying high-usage columns in the database that would benefit from indexing
+- Creating appropriate indexes using the CREATE INDEX command
+- Documenting the performance impact of these indexes
+
+The `index_performance.md` file provides a detailed analysis of:
+
+- Columns selected for indexing and the rationale behind each choice
+- Performance measurements before and after index implementation using EXPLAIN
+- Quantitative improvements in query execution time
+- Recommendations for index usage in a production environment
+
+To execute these index creation commands:
+
+```bash
+psql -U username -d airbnb_clone -f database_index.sql
+```
