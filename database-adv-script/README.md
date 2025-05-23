@@ -122,3 +122,28 @@ To execute these index creation commands:
 ```bash
 psql -U username -d airbnb_clone -f database_index.sql
 ```
+
+## Task 4: Optimize Complex Queries
+
+The `perfomance.sql` file contains a complex query and its optimized version:
+
+### Complex Query Optimization
+
+This task involves:
+
+- Writing a comprehensive query that joins multiple tables (bookings, users, properties, payments)
+- Analyzing query performance using EXPLAIN ANALYZE
+- Refactoring the query using various optimization techniques
+
+The `optimization_report.md` file provides:
+
+- Detailed analysis of the initial query's performance bottlenecks
+- Explanation of optimization techniques applied
+- Performance comparison between initial and optimized queries
+- Recommendations for further optimization
+
+To execute and analyze the queries:
+
+```bash
+psql -U username -d airbnb_clone -f perfomance.sql
+```
