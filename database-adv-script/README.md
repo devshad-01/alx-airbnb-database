@@ -147,3 +147,27 @@ To execute and analyze the queries:
 ```bash
 psql -U username -d airbnb_clone -f perfomance.sql
 ```
+
+## Task 5: Partitioning Large Tables
+
+The `partitioning.sql` file demonstrates partitioning the Booking table by date ranges:
+
+### Table Partitioning
+
+This task involves:
+- Creating a partitioned version of the Booking table using PostgreSQL's RANGE partitioning
+- Dividing bookings into quarterly partitions based on the start_date column
+- Setting up appropriate indexes on the partitioned table
+- Comparing query performance between original and partitioned tables
+
+The `partition_performance.md` file analyzes the performance benefits:
+- Detailed execution plan comparisons for different query types
+- Quantitative measurements of performance improvements
+- Additional benefits of the partitioning approach
+- Considerations and trade-offs when implementing table partitioning
+
+To execute the partitioning script:
+
+```bash
+psql -U username -d airbnb_clone -f partitioning.sql
+```

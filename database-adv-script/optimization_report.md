@@ -116,7 +116,7 @@ Reduced the number of columns to only those essential for the application:
 
 Added filtering criteria to limit the result set:
 
-- Used combined filters with AND operators: `b.created_at > '2024-01-01' AND b.status = 'confirmed'` 
+- Used combined filters with AND operators: `b.created_at > '2024-01-01' AND b.status = 'confirmed'`
 - Added filters to JOIN clauses using AND operators to reduce intermediate result sets
 - Added a LIMIT clause to implement pagination
 
