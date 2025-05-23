@@ -1,6 +1,36 @@
 -- Database Indexes for Airbnb Clone database
 -- Creating indexes on columns frequently used in WHERE, JOIN, and ORDER BY clauses
 
+-- Performance measurement before adding indexes
+-- Query 1: Find all properties for a specific host
+EXPLAIN ANALYZE
+SELECT * FROM "property" WHERE host_id = '11111111-1111-1111-1111-111111111111';
+
+-- Query 2: Find available properties within a price range
+EXPLAIN ANALYZE
+SELECT * FROM "property" 
+WHERE price_per_night BETWEEN 150 AND 250 
+ORDER BY price_per_night ASC;
+
+-- Query 3: Find all bookings for a user
+EXPLAIN ANALYZE
+SELECT b.*, p.name as property_name 
+FROM "booking" b 
+JOIN "property" p ON b.property_id = p.property_id
+WHERE b.user_id = '44444444-4444-4444-4444-444444444444';
+
+-- Query 4: Find properties not booked in a date range
+EXPLAIN ANALYZE
+SELECT * FROM "property" p 
+WHERE p.property_id NOT IN (
+    SELECT property_id FROM "booking"
+    WHERE status = 'confirmed'
+    AND (
+        (start_date <= '2025-07-10' AND end_date >= '2025-07-01')
+        OR (start_date >= '2025-07-01' AND start_date <= '2025-07-10')
+    )
+);
+
 -- User Table Indexes
 -- Index on email for user lookup/authentication
 CREATE INDEX idx_user_email ON "user" (email);
@@ -48,3 +78,33 @@ CREATE INDEX idx_address_city ON "address" (city);
 CREATE INDEX idx_address_country ON "address" (country);
 -- Index for geospatial queries
 CREATE INDEX idx_address_coordinates ON "address" (latitude, longitude);
+
+-- Performance measurement AFTER adding indexes
+-- Query 1: Find all properties for a specific host (now using the host_id index)
+EXPLAIN ANALYZE
+SELECT * FROM "property" WHERE host_id = '11111111-1111-1111-1111-111111111111';
+
+-- Query 2: Find available properties within a price range (now using the price index)
+EXPLAIN ANALYZE
+SELECT * FROM "property" 
+WHERE price_per_night BETWEEN 150 AND 250 
+ORDER BY price_per_night ASC;
+
+-- Query 3: Find all bookings for a user (now using the user_id index)
+EXPLAIN ANALYZE
+SELECT b.*, p.name as property_name 
+FROM "booking" b 
+JOIN "property" p ON b.property_id = p.property_id
+WHERE b.user_id = '44444444-4444-4444-4444-444444444444';
+
+-- Query 4: Find properties not booked in a date range (now using status and dates indexes)
+EXPLAIN ANALYZE
+SELECT * FROM "property" p 
+WHERE p.property_id NOT IN (
+    SELECT property_id FROM "booking"
+    WHERE status = 'confirmed'
+    AND (
+        (start_date <= '2025-07-10' AND end_date >= '2025-07-01')
+        OR (start_date >= '2025-07-01' AND start_date <= '2025-07-10')
+    )
+);
