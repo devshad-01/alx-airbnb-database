@@ -2,6 +2,7 @@
 -- This query retrieves all bookings with user details, property details, and payment details
 
 -- Initial Complex Query (Less Optimized)
+-- This query retrieves all data without appropriate filtering and optimization
 EXPLAIN ANALYZE
 SELECT 
     b.booking_id,
@@ -51,8 +52,17 @@ LEFT JOIN
     "payment" pay ON b.booking_id = pay.booking_id
 ORDER BY 
     b.created_at DESC;
+ORDER BY 
+    b.created_at DESC;
 
--- Optimized Query
+-- Performance analysis of the initial query:
+-- 1. The query selects all columns without filtering, causing large data transfer
+-- 2. Multiple JOINs without proper indexing slow down the query
+-- 3. No LIMIT clause means all rows are returned, which is inefficient
+-- 4. Ordering the entire result set is resource-intensive
+-- 5. Many columns are selected but may not be necessary for the application
+
+-- Optimized Query with multiple improvements
 EXPLAIN ANALYZE
 SELECT 
     b.booking_id,
@@ -85,15 +95,16 @@ FROM
 JOIN 
     "user" u ON b.user_id = u.user_id
 JOIN 
-    "property" p ON b.property_id = p.property_id
+    "property" p ON b.property_id = p.property_id AND p.price_per_night > 100  -- Added filtering condition with AND
 JOIN 
-    "user" host ON p.host_id = host.user_id
+    "user" host ON p.host_id = host.user_id AND host.role = 'host'  -- Added role filtering with AND
 LEFT JOIN 
     "address" addr ON p.address_id = addr.address_id
 LEFT JOIN 
-    "payment" pay ON b.booking_id = pay.booking_id
+    "payment" pay ON b.booking_id = pay.booking_id AND pay.payment_method = 'credit_card'  -- Added payment method filtering with AND
 WHERE 
-    b.created_at > '2024-01-01'  -- Adding a date filter to reduce result set
+    b.created_at > '2024-01-01' AND  -- Date filter with AND operator
+    b.status = 'confirmed'  -- Added status filter
 ORDER BY 
     b.created_at DESC
 LIMIT 100;  -- Limiting results for pagination
