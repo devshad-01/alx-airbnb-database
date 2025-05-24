@@ -1,100 +1,178 @@
-# Database Normalization Process for Airbnb Clone
+# Database Normalization to 3NF - AirBnB Schema
 
-## Overview
+## Original Schema Issues
 
-This document outlines the normalization process applied to the Airbnb Clone database schema to ensure it meets Third Normal Form (3NF) requirements. While the original schema was already well-structured, several improvements were made to further normalize the data model.
+### 1. First Normal Form (1NF) Violations
 
-![Normalized Database Schema](./AirBNB%20Normalised.svg)
+- **Composite Attributes**:
+  - `location` field in Property table
+  - `role`, `status`, and `payment_method` ENUM types
+- **Non-Atomic Values**:
+  - Single field for location data
+  - ENUM types acting as pseudo-reference tables
 
-## Original Schema Analysis
+### 2. Second Normal Form (2NF) Violations
 
-The initial schema included these main entities:
+- **Partial Dependencies**:
+  - User profile data mixed with authentication data
+  - Property features stored denormalized
 
-- User
-- Property
-- Booking
-- Payment
-- Review
-- Message
+### 3. Third Normal Form (3NF) Violations
 
-Each entity had a unique identifier as the primary key and appropriate foreign key relationships.
+- **Transitive Dependencies**:
+  - `total_price` in Booking table (derived from pricepernight and dates)
+  - Redundant user data in multiple tables
+
+---
 
 ## Normalization Steps
 
-### First Normal Form (1NF)
+### Step 1: Achieve 1NF - Atomic Values
 
-The schema already satisfied 1NF requirements with:
+**1.1 Split Composite Attributes**
 
-- Atomic values in all attributes
-- No repeating groups
-- Primary keys for all entities
+```sql
+-- Original
+Property(location VARCHAR)
 
-### Second Normal Form (2NF)
+-- Normalized
+CREATE TABLE Address (
+    address_id UUID PRIMARY KEY,
+    street VARCHAR,
+    city VARCHAR,
+    state VARCHAR,
+    country VARCHAR,
+    postal_code VARCHAR,
+    latitude DECIMAL,
+    longitude DECIMAL
+);
+```
 
-The original schema met 2NF requirements since:
+**1.2 Replace ENUMs with Reference Tables**
 
-- All tables had single-attribute primary keys (UUIDs)
-- No partial dependencies were possible
+```sql
+-- Original: ENUM('guest', 'host', 'admin')
+CREATE TABLE UserRole (
+    role_id UUID PRIMARY KEY,
+    role_name VARCHAR(20) UNIQUE
+);
 
-### Third Normal Form (3NF)
+-- Original: ENUM('pending', 'confirmed', 'canceled')
+CREATE TABLE BookingStatus (
+    status_id UUID PRIMARY KEY,
+    status_name VARCHAR(20) UNIQUE
+);
+```
 
-While the schema was close to 3NF, I identified and addressed these transitive dependencies:
+### Step 2: Achieve 2NF - Remove Partial Dependencies
 
-1. **Property Location Data**
+**2.1 Separate User Authentication and Profile**
 
-   - In the original schema, location was a single field
-   - This could contain redundant data and would be difficult to query
+```sql
+CREATE TABLE User (
+    user_id UUID PRIMARY KEY,
+    email VARCHAR UNIQUE,
+    password_hash VARCHAR,
+    role_id UUID REFERENCES UserRole
+);
 
-   **Normalization applied:**
+CREATE TABLE UserProfile (
+    user_id UUID PRIMARY KEY REFERENCES User,
+    first_name VARCHAR,
+    last_name VARCHAR,
+    phone_number VARCHAR
+);
+```
 
-   - Created a separate `Address` entity
-   - Linked Property to Address with a foreign key
-   - This allows for better geocoding, searching, and prevents duplication of address information
+**2.2 Normalize Property Features**
 
-2. **Property Features/Amenities**
+```sql
+CREATE TABLE Feature (
+    feature_id UUID PRIMARY KEY,
+    feature_name VARCHAR UNIQUE
+);
 
-   - Properties typically have multiple amenities (WiFi, parking, etc.)
-   - These would either be stored in a non-atomic field or duplicated across properties
+CREATE TABLE PropertyFeature (
+    property_id UUID REFERENCES Property,
+    feature_id UUID REFERENCES Feature,
+    PRIMARY KEY (property_id, feature_id)
+);
+```
 
-   **Normalization applied:**
+### Step 3: Achieve 3NF - Remove Transitive Dependencies
 
-   - Created a `Feature` entity for reusable amenities
-   - Created a `PropertyFeature` junction table to establish a many-to-many relationship
-   - This prevents duplication and allows for feature filtering
+**3.1 Remove Derived Data**
 
-3. **User Authentication and Profile**
+```sql
+-- Original: Booking(total_price)
+-- Removed and replaced with view:
+CREATE VIEW BookingPricing AS
+SELECT booking_id,
+       (end_date - start_date) * price_per_night AS total_price
+FROM Booking
+JOIN Property USING (property_id);
+```
 
-   - User authentication data and profile details served different purposes
-   - Changes to profile info shouldn't necessitate changes to authentication data
+**3.2 Normalize Payment Methods**
 
-   **Normalization applied:**
+```sql
+-- Original: ENUM('credit_card', 'paypal', 'stripe')
+CREATE TABLE PaymentMethod (
+    method_id UUID PRIMARY KEY,
+    method_name VARCHAR(20) UNIQUE
+);
+```
 
-   - Split User into core `User` (authentication) and `UserProfile` (personal details)
-   - This separates concerns and improves security
+## Additional Improvements
 
-## Resulting Schema Benefits
+**4.1 Review-Booking Relationship**
 
-The normalized schema offers several advantages:
+```sql
+-- Original linked to property/user directly
+ALTER TABLE Review ADD COLUMN booking_id UUID REFERENCES Booking;
+```
 
-1. **Reduced redundancy**
+**4.2 Spatial Data Normalization**
 
-   - Address information isn't duplicated across properties in the same location
-   - Features/amenities are defined once and referenced by multiple properties
+```sql
+ALTER TABLE Address ADD COLUMN geog GEOGRAPHY(POINT,4326);
+CREATE INDEX idx_address_geog ON Property USING GIST(geog);
+```
 
-2. **Improved query flexibility**
+## Final Schema Structure
 
-   - Location data can be queried at different granularity levels (city, state, country)
-   - Features can be easily searched and filtered
+- User
+  - UserRole
+  - UserProfile
+  - Booking
+    - BookingStatus
+    - Payment
+      - PaymentMethod
+- Property
+  - Address
+  - PropertyFeature
+    - Feature
+  - Availability
+- Review
+- Message
 
-3. **Better data integrity**
+## Normalization Benefits
 
-   - Changes to an address affect all properties at that address
-   - Updates to feature names propagate automatically to all associated properties
+- **Reduced Data Redundancy**:
 
-4. **Enhanced scalability**
-   - New features can be added without schema changes
-   - Location-based services can leverage the structured address data
+  - Address data stored once per property
+  - User roles stored in single reference table
 
-## Conclusion
+- **Improved Data Integrity**:
 
-The normalization process transformed an already well-structured schema into a fully 3NF-compliant design. The changes provide a more flexible, maintainable, and scalable foundation for the Airbnb Clone application while eliminating redundancy and preserving data integrity.
+  - ENUM values controlled through reference tables
+  - Price calculations centralized in view
+
+- **Easier Modifications**:
+
+  - Add new payment methods without schema changes
+  - Update user roles without altering multiple tables
+
+- **Better Query Performance**:
+  - Spatial indexing for location searches
+  - Proper indexing through foreign keys

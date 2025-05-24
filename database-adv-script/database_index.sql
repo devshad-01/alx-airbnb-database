@@ -1,110 +1,100 @@
--- Database Indexes for Airbnb Clone database
--- Creating indexes on columns frequently used in WHERE, JOIN, and ORDER BY clauses
+-- database_index.sql
+-- SQL commands to create indexes for optimizing the Airbnb database performance
 
--- Performance measurement before adding indexes
--- Query 1: Find all properties for a specific host
-EXPLAIN ANALYZE
-SELECT * FROM "property" WHERE host_id = '11111111-1111-1111-1111-111111111111';
+-- =================================================================
+-- INDEXES FOR THE USER TABLE
+-- =================================================================
 
--- Query 2: Find available properties within a price range
-EXPLAIN ANALYZE
-SELECT * FROM "property" 
-WHERE price_per_night BETWEEN 150 AND 250 
-ORDER BY price_per_night ASC;
+-- Index on email for fast user lookup during login
+-- This is a high-usage column in WHERE clauses
+CREATE INDEX IF NOT EXISTS idx_user_email ON "user" (email);
 
--- Query 3: Find all bookings for a user
-EXPLAIN ANALYZE
-SELECT b.*, p.name as property_name 
-FROM "booking" b 
-JOIN "property" p ON b.property_id = p.property_id
-WHERE b.user_id = '44444444-4444-4444-4444-444444444444';
+-- Index on role_id for filtering users by role
+-- Commonly used in WHERE clauses for access control
+CREATE INDEX IF NOT EXISTS idx_user_role ON "user" (role_id);
 
--- Query 4: Find properties not booked in a date range
-EXPLAIN ANALYZE
-SELECT * FROM "property" p 
-WHERE p.property_id NOT IN (
-    SELECT property_id FROM "booking"
-    WHERE status = 'confirmed'
-    AND (
-        (start_date <= '2025-07-10' AND end_date >= '2025-07-01')
-        OR (start_date >= '2025-07-01' AND start_date <= '2025-07-10')
-    )
-);
+-- Composite index for user creation date range queries
+-- Useful for analytical queries about user registrations
+CREATE INDEX IF NOT EXISTS idx_user_created_at ON "user" (created_at);
 
--- User Table Indexes
--- Index on email for user lookup/authentication
-CREATE INDEX idx_user_email ON "user" (email);
--- Index on role for filtering users by role
-CREATE INDEX idx_user_role ON "user" (role);
+-- =================================================================
+-- INDEXES FOR THE BOOKING TABLE
+-- =================================================================
 
--- Property Table Indexes
--- Index on host_id for filtering properties by host
-CREATE INDEX idx_property_host_id ON "property" (host_id);
--- Index on price_per_night for range queries and sorting
-CREATE INDEX idx_property_price ON "property" (price_per_night);
--- Index on created_at for sorting by newest properties
-CREATE INDEX idx_property_created_at ON "property" (created_at);
--- Composite index for address_id which is used in JOINs
-CREATE INDEX idx_property_address ON "property" (address_id);
+-- Index on property_id for fast property booking lookups
+-- Property owners frequently check bookings for their properties
+CREATE INDEX IF NOT EXISTS idx_booking_property ON booking (property_id);
 
--- Booking Table Indexes
--- Index on property_id for finding bookings for a specific property
-CREATE INDEX idx_booking_property_id ON "booking" (property_id);
--- Index on user_id for finding bookings by user
-CREATE INDEX idx_booking_user_id ON "booking" (user_id);
--- Index on status for filtering bookings by status
-CREATE INDEX idx_booking_status ON "booking" (status);
--- Composite index on start_date and end_date for date range queries
-CREATE INDEX idx_booking_dates ON "booking" (start_date, end_date);
+-- Index on user_id for retrieving user's booking history
+-- High-usage in user profile and dashboard queries
+CREATE INDEX IF NOT EXISTS idx_booking_user ON booking (user_id);
 
--- Review Table Indexes
--- Index on property_id for finding reviews for a property
-CREATE INDEX idx_review_property_id ON "review" (property_id);
--- Index on user_id for finding reviews by a user
-CREATE INDEX idx_review_user_id ON "review" (user_id);
--- Index on rating for filtering by rating
-CREATE INDEX idx_review_rating ON "review" (rating);
+-- Index on booking status for filtering bookings
+-- Commonly used in WHERE clauses for booking management
+CREATE INDEX IF NOT EXISTS idx_booking_status ON booking (status_id);
 
--- Message Table Indexes
--- Indexes for finding messages by sender or recipient
-CREATE INDEX idx_message_sender_id ON "message" (sender_id);
-CREATE INDEX idx_message_recipient_id ON "message" (recipient_id);
--- Index for finding unread messages
-CREATE INDEX idx_message_read_at ON "message" (read_at);
+-- Composite index on booking dates
+-- Critical for availability searches and date range queries
+CREATE INDEX IF NOT EXISTS idx_booking_dates ON booking (start_date, end_date);
 
--- Address Table Indexes
--- Indexes for geographic queries
-CREATE INDEX idx_address_city ON "address" (city);
-CREATE INDEX idx_address_country ON "address" (country);
--- Index for geospatial queries
-CREATE INDEX idx_address_coordinates ON "address" (latitude, longitude);
+-- =================================================================
+-- INDEXES FOR THE PROPERTY TABLE
+-- =================================================================
 
--- Performance measurement AFTER adding indexes
--- Query 1: Find all properties for a specific host (now using the host_id index)
-EXPLAIN ANALYZE
-SELECT * FROM "property" WHERE host_id = '11111111-1111-1111-1111-111111111111';
+-- Index on host_id for finding properties by host
+-- Used when hosts manage their listings
+CREATE INDEX IF NOT EXISTS idx_property_host ON property (host_id);
 
--- Query 2: Find available properties within a price range (now using the price index)
-EXPLAIN ANALYZE
-SELECT * FROM "property" 
-WHERE price_per_night BETWEEN 150 AND 250 
-ORDER BY price_per_night ASC;
+-- Index on price for filtering properties by price range
+-- Very common in search queries with price filters
+CREATE INDEX IF NOT EXISTS idx_property_price ON property (price_per_night);
 
--- Query 3: Find all bookings for a user (now using the user_id index)
-EXPLAIN ANALYZE
-SELECT b.*, p.name as property_name 
-FROM "booking" b 
-JOIN "property" p ON b.property_id = p.property_id
-WHERE b.user_id = '44444444-4444-4444-4444-444444444444';
+-- Index on max_guests for filtering properties by capacity
+-- Common filter in property search
+CREATE INDEX IF NOT EXISTS idx_property_guests ON property (max_guests);
 
--- Query 4: Find properties not booked in a date range (now using status and dates indexes)
-EXPLAIN ANALYZE
-SELECT * FROM "property" p 
-WHERE p.property_id NOT IN (
-    SELECT property_id FROM "booking"
-    WHERE status = 'confirmed'
-    AND (
-        (start_date <= '2025-07-10' AND end_date >= '2025-07-01')
-        OR (start_date >= '2025-07-01' AND start_date <= '2025-07-10')
-    )
-);
+-- =================================================================
+-- INDEXES FOR JOIN OPERATIONS
+-- =================================================================
+
+-- Index on address geography for spatial queries
+-- Critical for location-based searches
+CREATE INDEX IF NOT EXISTS idx_address_geog ON address USING GIST (geog);
+
+-- Index on property features for amenity filtering
+-- Improves performance of feature-based searches
+CREATE INDEX IF NOT EXISTS idx_property_feature ON property_feature (property_id, feature_id);
+
+-- Index on reviews for property rating calculations
+-- Speeds up review aggregation queries
+CREATE INDEX IF NOT EXISTS idx_review_property_rating ON review (property_id, rating);
+
+-- =================================================================
+-- INDEXES FOR AVAILABILITY SEARCHES
+-- =================================================================
+
+-- Index on availability calendar
+-- Critical for checking property availability on specific dates
+CREATE INDEX IF NOT EXISTS idx_availability_date ON availability (date);
+
+-- Composite index for available properties on specific dates
+-- Improves performance of availability search
+CREATE INDEX IF NOT EXISTS idx_availability_status_date ON availability (property_id, date, is_available)
+WHERE is_available = true;
+
+-- =================================================================
+-- INDEXES FOR MESSAGING SYSTEM
+-- =================================================================
+
+-- Index for fetching conversation messages
+-- Improves performance of message loading
+CREATE INDEX IF NOT EXISTS idx_message_conversation ON message (conversation_id);
+
+-- Index for user message retrieval
+-- For inbox/sent queries
+CREATE INDEX IF NOT EXISTS idx_message_users ON message (sender_id, recipient_id);
+
+-- Index for unread messages
+-- Optimizes unread message count queries
+CREATE INDEX IF NOT EXISTS idx_message_unread ON message (recipient_id, read_at)
+WHERE read_at IS NULL;

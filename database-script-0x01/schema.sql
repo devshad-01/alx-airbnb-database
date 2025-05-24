@@ -1,140 +1,165 @@
--- Airbnb Clone Database Schema
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "postgis";
 
--- Create User table
-CREATE TABLE "user"
-(
-    user_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+-- Reference Tables
+CREATE TABLE user_role (
+    role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_name VARCHAR(20) UNIQUE NOT NULL
+);
+
+CREATE TABLE booking_status (
+    status_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status_name VARCHAR(20) UNIQUE NOT NULL
+);
+
+CREATE TABLE payment_method (
+    method_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    method_name VARCHAR(20) UNIQUE NOT NULL
+);
+
+-- Core Tables
+CREATE TABLE "user" (
+    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role_id UUID NOT NULL REFERENCES user_role(role_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_profile (
+    user_id UUID PRIMARY KEY REFERENCES "user"(user_id),
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
     phone_number VARCHAR(20),
-    role VARCHAR(10) NOT NULL CHECK (role IN ('guest', 'host', 'admin')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    profile_picture_url VARCHAR(255),
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Address table (normalized from Property)
-CREATE TABLE "address"
-(
-    address_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    street_address VARCHAR(255) NOT NULL,
+CREATE TABLE address (
+    address_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    street VARCHAR(255) NOT NULL,
     city VARCHAR(100) NOT NULL,
-    state VARCHAR(100),
+    state VARCHAR(100) NOT NULL,
     country VARCHAR(100) NOT NULL,
-    postal_code VARCHAR(20),
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8)
+    postal_code VARCHAR(20) NOT NULL,
+    latitude DECIMAL(9,6),
+    longitude DECIMAL(9,6),
+    geog GEOGRAPHY(POINT, 4326)
 );
 
--- Create Property table
-CREATE TABLE "property"
-(
-    property_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    host_id UNIQUEIDENTIFIER NOT NULL,
-    address_id UNIQUEIDENTIFIER NOT NULL,
+CREATE TABLE property (
+    property_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    host_id UUID NOT NULL REFERENCES "user"(user_id),
+    address_id UUID NOT NULL REFERENCES address(address_id),
     name VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
-    price_per_night DECIMAL(10, 2) NOT NULL,
+    price_per_night DECIMAL(10,2) NOT NULL CHECK (price_per_night > 0),
+    max_guests INT NOT NULL CHECK (max_guests > 0),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (host_id) REFERENCES "user"(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (address_id) REFERENCES "address"(address_id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Feature table (for property amenities)
-CREATE TABLE "feature"
-(
-    feature_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT
+-- Features System
+CREATE TABLE feature (
+    feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    feature_name VARCHAR(100) UNIQUE NOT NULL,
+    icon VARCHAR(50)
 );
 
--- Create PropertyFeature junction table
-CREATE TABLE "property_feature"
-(
-    property_id UNIQUEIDENTIFIER NOT NULL,
-    feature_id UNIQUEIDENTIFIER NOT NULL,
-    PRIMARY KEY (property_id, feature_id),
-    FOREIGN KEY (property_id) REFERENCES "property"(property_id) ON DELETE CASCADE,
-    FOREIGN KEY (feature_id) REFERENCES "feature"(feature_id) ON DELETE CASCADE
+CREATE TABLE property_feature (
+    property_id UUID REFERENCES property(property_id),
+    feature_id UUID REFERENCES feature(feature_id),
+    PRIMARY KEY (property_id, feature_id)
 );
 
--- Create Booking table
-CREATE TABLE "booking"
-(
-    booking_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    property_id UNIQUEIDENTIFIER NOT NULL,
-    user_id UNIQUEIDENTIFIER NOT NULL,
+-- Booking System
+CREATE TABLE booking (
+    booking_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id UUID NOT NULL REFERENCES property(property_id),
+    user_id UUID NOT NULL REFERENCES "user"(user_id),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    total_price DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(10) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'canceled')),
+    total_price DECIMAL(10,2) NOT NULL CHECK (total_price > 0),
+    status_id UUID NOT NULL REFERENCES booking_status(status_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (property_id) REFERENCES "property"(property_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES "user"(user_id) ON DELETE CASCADE,
     CHECK (end_date > start_date)
 );
 
--- Create Payment table
-CREATE TABLE "payment"
-(
-    payment_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    booking_id UNIQUEIDENTIFIER NOT NULL UNIQUE,
-    -- one-to-one relationship
-    amount DECIMAL(10, 2) NOT NULL,
+-- Payment System
+CREATE TABLE payment (
+    payment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id UUID NOT NULL REFERENCES booking(booking_id),
+    amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('credit_card', 'paypal', 'stripe')),
-    FOREIGN KEY (booking_id) REFERENCES "booking"(booking_id) ON DELETE CASCADE
+    method_id UUID NOT NULL REFERENCES payment_method(method_id)
 );
 
--- Create Review table
-CREATE TABLE "review"
-(
-    review_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    property_id UNIQUEIDENTIFIER NOT NULL,
-    user_id UNIQUEIDENTIFIER NOT NULL,
-    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+-- Review System
+CREATE TABLE review (
+    review_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id UUID NOT NULL REFERENCES property(property_id),
+    user_id UUID NOT NULL REFERENCES "user"(user_id),
+    booking_id UUID REFERENCES booking(booking_id),
+    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (property_id) REFERENCES "property"(property_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES "user"(user_id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Message table
-CREATE TABLE "message"
-(
-    message_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    sender_id UNIQUEIDENTIFIER NOT NULL,
-    recipient_id UNIQUEIDENTIFIER NOT NULL,
+-- Availability System
+CREATE TABLE availability (
+    property_id UUID REFERENCES property(property_id),
+    date DATE NOT NULL,
+    is_available BOOLEAN NOT NULL DEFAULT true,
+    special_price DECIMAL(10,2),
+    PRIMARY KEY (property_id, date)
+);
+
+-- Messaging System
+CREATE TABLE conversation (
+    conversation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user1_id UUID NOT NULL REFERENCES "user"(user_id),
+    user2_id UUID NOT NULL REFERENCES "user"(user_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (user1_id <> user2_id)
+);
+
+CREATE TABLE message (
+    message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES conversation(conversation_id),
+    sender_id UUID NOT NULL REFERENCES "user"(user_id),
+    recipient_id UUID NOT NULL REFERENCES "user"(user_id),
     message_body TEXT NOT NULL,
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    read_at TIMESTAMP,
-    FOREIGN KEY (sender_id) REFERENCES "user"(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (recipient_id) REFERENCES "user"(user_id) ON DELETE CASCADE
+    read_at TIMESTAMP
 );
 
--- Create UserProfile table (normalized from User)
-CREATE TABLE "user_profile"
-(
-    profile_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL UNIQUE,
-    profile_picture VARCHAR(255),
-    bio TEXT,
-    preferred_language VARCHAR(50),
-    preferred_currency VARCHAR(3),
-    notification_preferences NVARCHAR(MAX),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES "user"(user_id) ON DELETE CASCADE
-);
+-- Indexes
+CREATE INDEX idx_address_geog ON address USING GIST(geog);
+CREATE INDEX idx_booking_dates ON booking(start_date, end_date);
+CREATE INDEX idx_user_email ON "user"(email);
+CREATE INDEX idx_property_price ON property(price_per_night);
+CREATE INDEX idx_availability_date ON availability(date);
 
--- Create indexes for optimized queries
-CREATE INDEX idx_property_host_id ON "property"(host_id);
-CREATE INDEX idx_property_price ON "property"(price_per_night);
-CREATE INDEX idx_booking_user_id ON "booking"(user_id);
-CREATE INDEX idx_booking_property_id ON "booking"(property_id);
-CREATE INDEX idx_booking_dates ON "booking"(start_date, end_date);
-CREATE INDEX idx_review_property_id ON "review"(property_id);
-CREATE INDEX idx_review_user_id ON "review"(user_id);
-CREATE INDEX idx_message_sender_id ON "message"(sender_id);
-CREATE INDEX idx_message_recipient_id ON "message"(recipient_id);
-CREATE INDEX idx_address_location ON "address"(city, country);
+-- View for calculated booking price
+CREATE VIEW booking_pricing AS
+SELECT 
+    b.booking_id,
+    b.start_date,
+    b.end_date,
+    p.price_per_night,
+    (b.end_date - b.start_date) * p.price_per_night AS total_price
+FROM booking b
+JOIN property p USING (property_id);
+
+-- Initialize Reference Data
+INSERT INTO user_role (role_name) VALUES 
+    ('guest'), ('host'), ('admin');
+
+INSERT INTO booking_status (status_name) VALUES 
+    ('pending'), ('confirmed'), ('canceled');
+
+INSERT INTO payment_method (method_name) VALUES 
+    ('credit_card'), ('paypal'), ('stripe');

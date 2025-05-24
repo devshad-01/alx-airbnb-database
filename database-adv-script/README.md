@@ -1,173 +1,419 @@
 # Advanced SQL Queries for Airbnb Clone Database
 
-This directory contains SQL scripts demonstrating advanced database operations for the Airbnb Clone application.
+This directory contains advanced SQL scripts demonstrating complex query techniques for the Airbnb clone database.
 
-## Task 0: Complex Queries with Joins
+## Files
 
-The `joins_queries.sql` file demonstrates three types of SQL joins:
+- `joins_queries.sql`: Examples of different types of joins (INNER, LEFT, FULL OUTER)
+- `subqueries.sql`: Examples of correlated and non-correlated subqueries
+- `aggregations_and_window_functions.sql`: Examples of aggregation and window functions
+- `database_index.sql`: SQL commands to create indexes for query optimization
+- `index_performance.md`: Analysis of query performance improvements with indexes
+- `perfomance.sql`: Complex query optimization examples with multiple versions
+- `optimization_report.md`: Comprehensive analysis of query optimization techniques
+- `partitioning.sql`: Implementation of table partitioning for large tables
+- `partition_performance.md`: Analysis of performance improvements with partitioned tables
+- `performance_monitoring.md`: Query performance analysis, bottleneck identification, and optimization recommendations
+
+## Joins Queries Explanation
+
+The `joins_queries.sql` file contains examples of different SQL join types applied to the Airbnb clone database:
 
 ### 1. INNER JOIN
 
-Retrieves all bookings and their respective users (guests) who made these bookings. This query shows:
+```sql
+SELECT
+    b.booking_id,
+    b.start_date,
+    b.end_date,
+    -- other fields...
+FROM
+    booking b
+INNER JOIN
+    "user" u ON b.user_id = u.user_id
+-- other joins...
+```
 
-- Booking details (ID, dates, price, status)
-- User information (ID, name, email)
-
-The INNER JOIN ensures that only bookings with associated users are returned.
+- **Purpose**: Retrieve all bookings and the users who made them
+- **Tables Involved**: booking, user, user_profile, property, booking_status
+- **Results**: Only shows bookings that have an associated user
+- **Use Case**: When you need to display booking information with user details for confirmed reservations
 
 ### 2. LEFT JOIN
 
-Retrieves all properties and their reviews, including properties that have not been reviewed. This query shows:
+```sql
+SELECT
+    p.property_id,
+    p.name AS property_name,
+    -- other fields...
+FROM
+    property p
+LEFT JOIN
+    review r ON p.property_id = r.property_id
+-- other joins...
+```
 
-- Property details (ID, name, description, price)
-- Review information (ID, rating, comment, date)
-- Reviewer information (first name, last name)
-
-The LEFT JOIN ensures that all properties are included in the results, even those without reviews.
+- **Purpose**: Retrieve all properties and their reviews, including properties with no reviews
+- **Tables Involved**: property, review, user, user_profile, address
+- **Results**: Shows all properties, with NULL values in review columns for properties without reviews
+- **Use Case**: When displaying a property listing page that should show all properties regardless of whether they have reviews
 
 ### 3. FULL OUTER JOIN
 
-Retrieves all users and all bookings, regardless of whether a user has made a booking or a booking is associated with a user. This query shows:
-
-- User details (ID, name, email, role)
-- Booking information (ID, property ID, dates, price, status)
-
-The FULL OUTER JOIN ensures that all users and all bookings are included in the results, showing complete data from both tables.
-
-## Usage
-
-To execute these queries:
-
-```bash
-psql -U username -d airbnb_clone -f joins_queries.sql
+```sql
+SELECT
+    u.user_id,
+    up.first_name,
+    -- other fields...
+FROM
+    "user" u
+FULL OUTER JOIN
+    booking b ON u.user_id = b.user_id
+-- other joins...
 ```
 
-## Task 1: Subqueries
+- **Purpose**: Retrieve all users and all bookings, even if a user has no bookings or a booking has no user
+- **Tables Involved**: user, booking, user_profile, user_role, booking_status, property
+- **Results**: Shows all users and all bookings with NULL values where no match exists
+- **Use Case**: For comprehensive system audits or generating reports that need to account for all users and all bookings
 
-The `subqueries.sql` file demonstrates two types of subqueries:
+### 4. Bonus: Complex Nested Join with Aggregation
 
-### 1. Non-correlated Subquery
-
-Finds all properties where the average rating is greater than 4.0. This query:
-
-- Uses a subquery to calculate the average rating for each property
-- Returns only properties that meet the rating threshold
-- Demonstrates how to use GROUP BY and HAVING within a subquery
-
-### 2. Correlated Subquery
-
-Finds users who have made more than 3 bookings. This query:
-
-- Uses a correlated subquery where the inner query references the outer query
-- Counts the number of bookings for each user
-- Returns only users who have made more than the specified number of bookings
-- Demonstrates how to use correlated subqueries for data filtering based on counts
-
-To execute these subqueries:
-
-```bash
-psql -U username -d airbnb_clone -f subqueries.sql
+```sql
+SELECT
+    host.user_id AS host_id,
+    host_profile.first_name || ' ' || host_profile.last_name AS host_name,
+    -- other fields and aggregations...
+FROM
+    "user" host
+INNER JOIN
+    user_profile host_profile ON host.user_id = host_profile.user_id
+-- other joins...
+GROUP BY
+    -- grouped fields...
 ```
 
-## Task 2: Aggregations and Window Functions
+- **Purpose**: Generate a comprehensive host performance report
+- **Tables Involved**: user, user_profile, user_role, property, address, review, booking, booking_status
+- **Results**: Shows hosts with their properties, average ratings, booking counts, and revenue
+- **Use Case**: For administrative dashboards or host performance analytics
 
-The `aggregations_and_window_functions.sql` file demonstrates the use of SQL aggregation functions and window functions:
+## How to Use These Queries
 
-### 1. Aggregation with GROUP BY
+1. Ensure your database is populated with the schema and sample data
+2. Execute individual queries to understand the different join types
+3. Modify the queries to fit your specific needs
+4. Study the query structure to learn how to build complex, multi-table queries
 
-Finds the total number of bookings made by each user. This query:
+## Performance Considerations
 
-- Uses the COUNT function to tally bookings per user
-- Employs GROUP BY to organize results by user
-- Demonstrates how to create summary statistics from transaction data
-- Includes user details for better context in the results
+- The FULL OUTER JOIN query may be resource-intensive on large datasets
+- Consider adding appropriate indexes to improve performance
+- For production use, you may need to add WHERE clauses to limit the result set size
 
-### 2. Window Functions for Ranking
+## Subqueries Explanation
 
-Ranks properties based on the total number of bookings they have received. This query:
+The `subqueries.sql` file demonstrates the use of both correlated and non-correlated subqueries in the context of the Airbnb clone database.
 
-- Uses COUNT as an aggregation function to determine booking frequency
-- Applies ROW_NUMBER() to assign a unique sequential rank to each property
-- Applies RANK() to provide a ranking that handles ties appropriately
-- Demonstrates how window functions can provide analytical insights while preserving row details
-- Showcases the difference between ROW_NUMBER and RANK window functions
+### 1. Non-Correlated Subquery - Properties with High Ratings
 
-To execute these queries:
-
-```bash
-psql -U username -d airbnb_clone -f aggregations_and_window_functions.sql
+```sql
+SELECT
+    p.property_id,
+    p.name AS property_name,
+    -- other fields...
+FROM
+    property p
+INNER JOIN
+    address a ON p.address_id = a.address_id
+INNER JOIN (
+    SELECT
+        property_id,
+        AVG(rating) AS average_rating
+    FROM
+        review
+    GROUP BY
+        property_id
+    HAVING
+        AVG(rating) > 4.0
+) AS AVG_RATING ON p.property_id = AVG_RATING.property_id
 ```
 
-## Task 3: Indexes for Optimization
+- **Purpose**: Find properties with an average rating greater than 4.0
+- **Type**: Non-correlated subquery (independent of the outer query)
+- **Results**: Only returns properties with high ratings (> 4.0)
+- **Use Case**: When displaying "top-rated" properties to users as featured listings
 
-The `database_index.sql` file contains SQL commands to create indexes that optimize database performance:
+### 2. Correlated Subquery - Users with Multiple Bookings
 
-### Index Creation
-
-This task involves:
-
-- Identifying high-usage columns in the database that would benefit from indexing
-- Creating appropriate indexes using the CREATE INDEX command
-- Documenting the performance impact of these indexes
-
-The `index_performance.md` file provides a detailed analysis of:
-
-- Columns selected for indexing and the rationale behind each choice
-- Performance measurements before and after index implementation using EXPLAIN
-- Quantitative improvements in query execution time
-- Recommendations for index usage in a production environment
-
-To execute these index creation commands:
-
-```bash
-psql -U username -d airbnb_clone -f database_index.sql
+```sql
+SELECT
+    u.user_id,
+    up.first_name,
+    -- other fields...
+FROM
+    "user" u
+INNER JOIN
+    user_profile up ON u.user_id = up.user_id
+WHERE
+    (
+        SELECT
+            COUNT(booking_id)
+        FROM
+            booking b
+        WHERE
+            b.user_id = u.user_id
+    ) > 3
 ```
 
-## Task 4: Optimize Complex Queries
+- **Purpose**: Find users who have made more than 3 bookings
+- **Type**: Correlated subquery (references the outer query)
+- **Results**: Returns users with a booking count greater than 3
+- **Use Case**: For identifying frequent customers for loyalty programs or targeted marketing
 
-The `perfomance.sql` file contains a complex query and its optimized version:
+### 3. Bonus: Nested Subqueries for Complex Analysis
 
-### Complex Query Optimization
-
-This task involves:
-
-- Writing a comprehensive query that joins multiple tables (bookings, users, properties, payments)
-- Analyzing query performance using EXPLAIN ANALYZE
-- Refactoring the query using various optimization techniques
-
-The `optimization_report.md` file provides:
-
-- Detailed analysis of the initial query's performance bottlenecks
-- Explanation of optimization techniques applied
-- Performance comparison between initial and optimized queries
-- Recommendations for further optimization
-
-To execute and analyze the queries:
-
-```bash
-psql -U username -d airbnb_clone -f perfomance.sql
+```sql
+SELECT
+    p.property_id,
+    p.name AS property_name,
+    -- other fields...
+FROM
+    property p
+-- other joins...
+WHERE
+    (
+        SELECT AVG(rating)
+        FROM review r
+        WHERE r.property_id = p.property_id
+    ) > (
+        SELECT AVG(rating) FROM review
+    )
+    AND
+    (
+        SELECT COUNT(*)
+        FROM property
+        WHERE host_id = p.host_id
+    ) > 1
 ```
 
-## Task 5: Partitioning Large Tables
+- **Purpose**: Find properties with above-average ratings owned by hosts with multiple properties
+- **Type**: Multiple nested subqueries (both correlated and non-correlated)
+- **Results**: Returns high-performing properties from experienced hosts
+- **Use Case**: For identifying "superhost" properties or premium listings
 
-The `partitioning.sql` file demonstrates partitioning the Booking table by date ranges:
+## Subquery vs. JOIN Performance
 
-### Table Partitioning
+- **Subqueries** can sometimes be less efficient than equivalent JOINs, especially for large datasets
+- **Correlated subqueries** execute once for each row in the outer query, potentially causing performance issues
+- Consider using **indexes** on columns used in subquery conditions
+- For complex queries, **execution plans** can help determine the most efficient approach
+- Some subqueries can be **rewritten as JOINs** for better performance in certain database systems
 
-This task involves:
-- Creating a partitioned version of the Booking table using PostgreSQL's RANGE partitioning
-- Dividing bookings into quarterly partitions based on the start_date column
-- Setting up appropriate indexes on the partitioned table
-- Comparing query performance between original and partitioned tables
+## Aggregations and Window Functions Explanation
 
-The `partition_performance.md` file analyzes the performance benefits:
-- Detailed execution plan comparisons for different query types
-- Quantitative measurements of performance improvements
-- Additional benefits of the partitioning approach
-- Considerations and trade-offs when implementing table partitioning
+The `aggregations_and_window_functions.sql` file demonstrates the use of SQL aggregation functions and window functions for analyzing data in the Airbnb clone database.
 
-To execute the partitioning script:
+### 1. Aggregation with GROUP BY - Bookings per User
 
-```bash
-psql -U username -d airbnb_clone -f partitioning.sql
+```sql
+SELECT
+    u.user_id,
+    up.first_name,
+    up.last_name,
+    COUNT(b.booking_id) AS booking_count,
+    SUM(b.total_price) AS total_spent
+FROM
+    "user" u
+LEFT JOIN
+    booking b ON u.user_id = b.user_id
+LEFT JOIN
+    user_profile up ON u.user_id = up.user_id
+GROUP BY
+    u.user_id, up.first_name, up.last_name
+ORDER BY
+    booking_count DESC;
 ```
+
+- **Purpose**: Count the total number of bookings made by each user
+- **Functions Used**: COUNT(), SUM(), GROUP BY
+- **Results**: Shows users with their booking counts and total spending
+- **Use Case**: User activity analysis, identifying frequent customers
+
+### 2. Window Functions - Property Rankings
+
+```sql
+SELECT
+    p.property_id,
+    p.name AS property_name,
+    COUNT(b.booking_id) AS booking_count,
+    ROW_NUMBER() OVER (ORDER BY COUNT(b.booking_id) DESC) AS booking_rank_unique,
+    RANK() OVER (ORDER BY COUNT(b.booking_id) DESC) AS booking_rank
+FROM
+    property p
+LEFT JOIN
+    booking b ON p.property_id = b.property_id
+GROUP BY
+    p.property_id, p.name
+ORDER BY
+    booking_count DESC;
+```
+
+- **Purpose**: Rank properties based on the total number of bookings they have received
+- **Functions Used**: ROW_NUMBER(), RANK(), COUNT()
+- **Results**: Properties with their booking counts and different types of rankings
+- **Use Case**: Identifying most popular properties, featuring top listings
+
+### 3. Window Functions with Partitioning - City-specific Rankings
+
+```sql
+SELECT
+    p.name AS property_name,
+    a.city,
+    COUNT(b.booking_id) AS booking_count,
+    RANK() OVER (PARTITION BY a.city ORDER BY COUNT(b.booking_id) DESC) AS city_booking_rank
+FROM
+    property p
+LEFT JOIN
+    booking b ON p.property_id = b.property_id
+INNER JOIN
+    address a ON p.address_id = a.address_id
+GROUP BY
+    p.property_id, p.name, a.city
+ORDER BY
+    a.city, booking_count DESC;
+```
+
+- **Purpose**: Rank properties within each city based on booking counts
+- **Functions Used**: RANK() with PARTITION BY, COUNT()
+- **Results**: Properties ranked within their respective cities
+- **Use Case**: Location-specific popularity analysis, city-based recommendations
+
+### 4. Bonus: Advanced Window Functions with Frames
+
+```sql
+SELECT
+    b.start_date,
+    SUM(b.total_price) AS daily_revenue,
+    SUM(SUM(b.total_price)) OVER (ORDER BY b.start_date) AS cumulative_revenue,
+    AVG(SUM(b.total_price)) OVER (
+        ORDER BY b.start_date
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ) AS seven_day_avg_revenue
+FROM
+    booking b
+GROUP BY
+    b.start_date
+ORDER BY
+    b.start_date;
+```
+
+- **Purpose**: Calculate running totals and moving averages for booking revenue
+- **Functions Used**: SUM(), AVG() with window frames
+- **Results**: Daily revenue with cumulative totals and 7-day moving averages
+- **Use Case**: Revenue trend analysis, seasonality detection
+
+## Differences Between Aggregation and Window Functions
+
+- **Aggregation Functions** (with GROUP BY):
+
+  - Collapse multiple rows into a single result row
+  - Return one row per group
+  - Examples: COUNT(), SUM(), AVG(), MIN(), MAX()
+
+- **Window Functions**:
+  - Perform calculations across rows related to the current row
+  - Preserve all rows in the result set
+  - Allow access to multiple rows without collapsing them
+  - Examples: ROW_NUMBER(), RANK(), DENSE_RANK(), LEAD(), LAG()
+
+## Performance Considerations
+
+- **Aggregation Performance**:
+
+  - Add indexes on GROUP BY columns for better performance
+  - Consider materialized views for frequently used aggregations
+
+- **Window Function Performance**:
+  - Window functions may be computationally expensive
+  - Large PARTITION BY clauses can consume significant memory
+  - Consider pre-aggregating data for large datasets
+
+## Database Indexing and Optimization
+
+The `database_index.sql` and `index_performance.md` files demonstrate strategies for optimizing database performance through strategic indexing.
+
+### Index Creation Strategy
+
+Indexes have been created for high-usage columns that frequently appear in:
+
+- WHERE clauses (filtering conditions)
+- JOIN conditions
+- ORDER BY clauses
+- GROUP BY operations
+
+```sql
+-- Example indexes from database_index.sql
+CREATE INDEX idx_booking_dates ON booking (start_date, end_date);
+CREATE INDEX idx_property_price ON property (price_per_night);
+CREATE INDEX idx_user_email ON "user" (email);
+```
+
+### Types of Indexes Used
+
+1. **Single-Column Indexes**
+
+   - Created on frequently filtered columns like `email`, `role_id`, and `price_per_night`
+   - Improves performance of simple equality and range queries
+
+2. **Composite Indexes**
+
+   - Created on columns that are frequently used together
+   - Example: `(start_date, end_date)` for booking date range queries
+
+3. **Spatial Indexes**
+
+   - GiST index on the `geog` column for efficient spatial queries
+   - Crucial for location-based property searches
+
+4. **Partial Indexes**
+   - Created on filtered subsets of data
+   - Example: Index only on available properties to optimize availability searches
+
+### Performance Impact Analysis
+
+The `index_performance.md` file contains:
+
+1. **Before/After Comparisons**
+
+   - Query execution plans and times before adding indexes
+   - The same queries analyzed after index creation
+   - Performance improvement metrics
+
+2. **Analysis of Query Plans**
+
+   - How the PostgreSQL query planner uses the indexes
+   - Which indexes provide the most significant performance gains
+   - Explanation of how index access methods work
+
+3. **Optimization Recommendations**
+   - Which indexes to prioritize for maintenance
+   - Trade-offs between query performance and write performance
+   - Index size and maintenance considerations
+
+### Index Performance Summary
+
+| Query Type        | Before Indexing | After Indexing | Improvement |
+| ----------------- | --------------- | -------------- | ----------- |
+| Date Range Search | 7.022ms         | 1.743ms        | 75.2%       |
+| User Bookings     | 3.502ms         | 0.941ms        | 73.1%       |
+| Property Ratings  | 5.631ms         | 1.145ms        | 79.7%       |
+
+### Best Practices for Index Usage
+
+- Don't create indexes on columns that are rarely used in queries
+- Consider the write overhead of maintaining indexes
+- Use EXPLAIN ANALYZE to verify index usage
+- Create indexes to support foreign keys
+- Consider partial indexes for frequently filtered subsets
+- Maintain indexes through periodic REINDEX operations
