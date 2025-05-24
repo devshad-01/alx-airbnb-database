@@ -101,6 +101,7 @@ LEFT JOIN
     review r ON r.booking_id = b.booking_id
 WHERE 
     b.start_date >= CURRENT_DATE - INTERVAL '1 year'
+    AND b.status_id = (SELECT status_id FROM booking_status WHERE status_name = 'confirmed')
 ORDER BY 
     b.start_date DESC;
 
@@ -182,6 +183,7 @@ LEFT JOIN
     property_ratings pr ON p.property_id = pr.property_id
 WHERE 
     b.start_date >= CURRENT_DATE - INTERVAL '1 year'
+    AND b.status_id = (SELECT status_id FROM booking_status WHERE status_name = 'confirmed')
 ORDER BY 
     b.start_date DESC;
 
@@ -262,6 +264,7 @@ CROSS JOIN LATERAL (
 ) property_features
 WHERE 
     b.start_date >= CURRENT_DATE - INTERVAL '1 year'
+    AND b.status_id = (SELECT status_id FROM booking_status WHERE status_name = 'confirmed')
 ORDER BY 
     b.start_date DESC;
 
@@ -311,6 +314,7 @@ LEFT JOIN
     payment_method pmethod ON pm.method_id = pmethod.method_id
 WHERE 
     b.start_date >= CURRENT_DATE - INTERVAL '1 year'
+    AND b.status_id = (SELECT status_id FROM booking_status WHERE status_name = 'confirmed')
 ORDER BY 
     b.start_date DESC
 LIMIT 100;
